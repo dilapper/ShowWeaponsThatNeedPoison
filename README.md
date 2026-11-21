@@ -10,6 +10,10 @@ While the icons are unlocked, dimmed placeholders are always visible so you can 
 
 Copy the `ShowWeaponsThatNeedPoison` folder into your `Interface/AddOns` directory.
 
+## Options
+
+Open the options panel from Esc > Options > AddOns > ShowWeaponsThatNeedPoison, or with `/swp options`. You can set the icon scale from 0% to 200% (100% is the default, and 0% makes the icons effectively invisible), lock or unlock their positions, and reset everything. Changing the scale keeps the icons centred where they are.
+
 ## Positioning
 
 The icons start unlocked. Drag each one where you want it, then click **Lock position**.
@@ -18,7 +22,8 @@ The icons start unlocked. Drag each one where you want it, then click **Lock pos
 | --- | --- |
 | `/swp unlock` | Unlock the icons so they can be dragged |
 | `/swp lock` | Lock them in place |
-| `/swp size <16-200>` | Set icon size |
+| `/swp options` | Open the options panel |
+| `/swp scale <0-200>` | Set icon scale in percent (100 = default) |
 | `/swp reset` | Reset positions |
 | `/swp test` | Force both icons visible and glowing (until reload) |
 | `/swp status` | Print what the addon sees (for bug reports) |
