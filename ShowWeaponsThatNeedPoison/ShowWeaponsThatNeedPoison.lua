@@ -114,6 +114,35 @@ local function createIcon(key, label)
         self.dragTarget = nil
     end)
 
+    -- Hover highlight.
+    f.highlight = f:CreateTexture(nil, "HIGHLIGHT")
+    f.highlight:SetAllPoints()
+    f.highlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+    f.highlight:SetBlendMode("ADD")
+
+    -- Weapon tooltip on hover.
+    f:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        if GameTooltip:SetInventoryItem("player", SLOTS[self.key]) then
+            if SpellIsTargeting() then
+                GameTooltip:AddLine("Click to apply to this weapon", 0.4, 1, 0.2)
+            end
+            GameTooltip:Show()
+        else
+            GameTooltip:Hide() -- nothing equipped (placeholder icon)
+        end
+    end)
+    f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- Apply a poison: after right-clicking a poison, the game is in item
+    -- targeting mode and waits for a weapon to be picked. Clicking this icon
+    -- picks the weapon, same as clicking it in the character sheet.
+    f:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" and SpellIsTargeting() then
+            PickupInventoryItem(SLOTS[self.key])
+        end
+    end)
+
     return f
 end
 
@@ -170,7 +199,7 @@ local function layout()
             local p = db.points[f.key]
             f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
         end
-        f:EnableMouse(not db.locked)
+        f:EnableMouse(true) -- needed for tooltip and click-to-apply; dragging is gated by db.locked
     end
     positionLockButton()
     if lockButton then lockButton:SetShown(not db.locked) end
@@ -252,6 +281,7 @@ local function update()
             f.time:SetText("")
             setGlow(f, false)
         else
+            if GameTooltip:IsOwned(f) then GameTooltip:Hide() end
             f:Hide()
             setGlow(f, false)
         end

@@ -6,6 +6,10 @@ It shows nothing while your weapons are poisoned. When a weapon has no poison, i
 
 While the icons are unlocked, dimmed placeholders are always visible so you can position them.
 
+## Tooltip and applying poisons
+
+Hover an icon to see the tooltip of the weapon in that slot. To apply a poison without opening your character sheet, right-click the poison in your bags as usual, then left-click the icon of the weapon you want it on.
+
 ## Install
 
 Copy the `ShowWeaponsThatNeedPoison` folder into your `Interface/AddOns` directory.
