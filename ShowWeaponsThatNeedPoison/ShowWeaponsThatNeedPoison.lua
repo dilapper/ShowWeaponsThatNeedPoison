@@ -330,9 +330,21 @@ function createOptionsPanel()
     local sideButtons = {}
     local function refreshLinkWidgets() end -- assigned below
     for i, s in ipairs(SIDES) do
-        local b = CreateFrame("CheckButton", "ShowWeaponsThatNeedPoisonSide" .. s[1], panel, "UICheckButtonTemplate")
-        place(b, 40 + (i - 1) * 80, -254)
-        _G[b:GetName() .. "Text"]:SetText(s[2])
+        -- Radio button: a CheckButton skinned with Blizzard's radio texture
+        -- (unchecked / checked / highlight laid out side by side). Only one
+        -- side is ever selected; refreshLinkWidgets enforces that.
+        local b = CreateFrame("CheckButton", "ShowWeaponsThatNeedPoisonSide" .. s[1], panel)
+        b:SetSize(16, 16)
+        place(b, 44 + (i - 1) * 80, -258)
+        b:SetNormalTexture("Interface\\Buttons\\UI-RadioButton")
+        b:GetNormalTexture():SetTexCoord(0, 0.25, 0, 1)
+        b:SetCheckedTexture("Interface\\Buttons\\UI-RadioButton")
+        b:GetCheckedTexture():SetTexCoord(0.25, 0.5, 0, 1)
+        b:SetHighlightTexture("Interface\\Buttons\\UI-RadioButton", "ADD")
+        b:GetHighlightTexture():SetTexCoord(0.5, 0.75, 0, 1)
+        b.text = b:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        b.text:SetPoint("LEFT", b, "RIGHT", 4, 0)
+        b.text:SetText(s[2])
         b.side = s[1]
         b:SetScript("OnClick", function(self)
             db.linkSide = self.side
@@ -363,6 +375,7 @@ function createOptionsPanel()
         for _, b in ipairs(sideButtons) do
             b:SetChecked(db.linkSide == b.side)
             if db.linked then b:Enable() else b:Disable() end
+            b:SetAlpha(db.linked and 1 or 0.5)
         end
         gap:SetAlpha(db.linked and 1 or 0.5)
         gap:EnableMouse(db.linked)
