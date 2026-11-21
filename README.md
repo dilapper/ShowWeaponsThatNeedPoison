@@ -2,7 +2,7 @@
 
 A World of Warcraft addon for Rogues who forget to reapply poisons.
 
-It shows nothing while your weapons are poisoned. When a weapon has no poison, its icon appears with a pulsing green glow: main hand and off hand are separate icons. The off-hand icon never appears if you don't have an off-hand weapon.
+It shows nothing until you have learned the Poisons ability (level 20), and nothing while your weapons are poisoned. When a weapon has no poison, its icon appears with a pulsing green glow: main hand and off hand are separate icons. The off-hand icon never appears if you don't have an off-hand weapon.
 
 While the icons are unlocked, dimmed placeholders are always visible so you can position them.
 

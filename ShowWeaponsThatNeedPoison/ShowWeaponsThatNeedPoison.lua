@@ -228,6 +228,15 @@ end
 -- State
 ---------------------------------------------------------------------------
 
+-- Rogues learn the passive "Poisons" ability at level 20; until then there is
+-- nothing to remind them about.
+local POISONS_SPELL_ID = 2842
+
+local function knowsPoisons()
+    if IsPlayerSpell then return IsPlayerSpell(POISONS_SPELL_ID) end
+    return IsSpellKnown(POISONS_SPELL_ID)
+end
+
 local function isWeapon(slot)
     local id = GetInventoryItemID("player", slot)
     if not id then return false end
@@ -244,6 +253,7 @@ local function update()
         return
     end
 
+    local poisonsKnown = knowsPoisons()
     local hasMH, mhExp, _, _, hasOH, ohExp = GetWeaponEnchantInfo()
     local info = {
         MH = { has = hasMH, exp = mhExp },
@@ -263,7 +273,7 @@ local function update()
             f.icon:SetAlpha(1)
             f.time:SetText("")
             setGlow(f, true)
-        elseif tex and isWeapon(slot) and not st.has then
+        elseif poisonsKnown and tex and isWeapon(slot) and not st.has then
             -- Weapon with no poison: show it glowing.
             f:Show()
             f.icon:SetTexture(tex)
@@ -498,6 +508,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         self:RegisterEvent("PLAYER_ENTERING_WORLD")
         self:RegisterEvent("UNIT_INVENTORY_CHANGED")
         self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+        self:RegisterEvent("SPELLS_CHANGED") -- learning Poisons
         -- Enchant expiry fires no event, so poll.
         C_Timer.NewTicker(0.5, update)
     end
@@ -558,7 +569,8 @@ SlashCmdList.SHOWWEAPONSTHATNEEDPOISON = function(msg)
         say(testMode and "test mode ON - both icons forced visible (resets on reload)." or "test mode off.")
     elseif cmd == "status" then
         local mh, mhExp, _, _, oh, ohExp = GetWeaponEnchantInfo()
-        say(("class=%s locked=%s MH tex=%s OH tex=%s"):format(select(2, UnitClass("player")), tostring(db.locked),
+        say(("class=%s poisonsKnown=%s locked=%s MH tex=%s OH tex=%s"):format(select(2, UnitClass("player")),
+            tostring(knowsPoisons()), tostring(db.locked),
             tostring(GetInventoryItemTexture("player", 16)), tostring(GetInventoryItemTexture("player", 17))))
         say(("enchant MH=%s(%s) OH=%s(%s)"):format(tostring(mh), tostring(mhExp), tostring(oh), tostring(ohExp)))
     elseif cmd == "all" then
