@@ -114,6 +114,35 @@ local function createIcon(key, label)
         self.dragTarget = nil
     end)
 
+    -- Hover highlight.
+    f.highlight = f:CreateTexture(nil, "HIGHLIGHT")
+    f.highlight:SetAllPoints()
+    f.highlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+    f.highlight:SetBlendMode("ADD")
+
+    -- Weapon tooltip on hover.
+    f:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        if GameTooltip:SetInventoryItem("player", SLOTS[self.key]) then
+            if SpellIsTargeting() then
+                GameTooltip:AddLine("Click to apply to this weapon", 0.4, 1, 0.2)
+            end
+            GameTooltip:Show()
+        else
+            GameTooltip:Hide() -- nothing equipped (placeholder icon)
+        end
+    end)
+    f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- Apply a poison: after right-clicking a poison, the game is in item
+    -- targeting mode and waits for a weapon to be picked. Clicking this icon
+    -- picks the weapon, same as clicking it in the character sheet.
+    f:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" and SpellIsTargeting() then
+            PickupInventoryItem(SLOTS[self.key])
+        end
+    end)
+
     return f
 end
 
@@ -170,7 +199,7 @@ local function layout()
             local p = db.points[f.key]
             f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
         end
-        f:EnableMouse(not db.locked)
+        f:EnableMouse(true) -- needed for tooltip and click-to-apply; dragging is gated by db.locked
     end
     positionLockButton()
     if lockButton then lockButton:SetShown(not db.locked) end
@@ -199,6 +228,15 @@ end
 -- State
 ---------------------------------------------------------------------------
 
+-- Rogues learn the passive "Poisons" ability at level 20; until then there is
+-- nothing to remind them about.
+local POISONS_SPELL_ID = 2842
+
+local function knowsPoisons()
+    if IsPlayerSpell then return IsPlayerSpell(POISONS_SPELL_ID) end
+    return IsSpellKnown(POISONS_SPELL_ID)
+end
+
 local function isWeapon(slot)
     local id = GetInventoryItemID("player", slot)
     if not id then return false end
@@ -215,6 +253,7 @@ local function update()
         return
     end
 
+    local poisonsKnown = knowsPoisons()
     local hasMH, mhExp, _, _, hasOH, ohExp = GetWeaponEnchantInfo()
     local info = {
         MH = { has = hasMH, exp = mhExp },
@@ -234,7 +273,7 @@ local function update()
             f.icon:SetAlpha(1)
             f.time:SetText("")
             setGlow(f, true)
-        elseif tex and isWeapon(slot) and not st.has then
+        elseif poisonsKnown and tex and isWeapon(slot) and not st.has then
             -- Weapon with no poison: show it glowing.
             f:Show()
             f.icon:SetTexture(tex)
@@ -252,6 +291,7 @@ local function update()
             f.time:SetText("")
             setGlow(f, false)
         else
+            if GameTooltip:IsOwned(f) then GameTooltip:Hide() end
             f:Hide()
             setGlow(f, false)
         end
@@ -468,6 +508,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         self:RegisterEvent("PLAYER_ENTERING_WORLD")
         self:RegisterEvent("UNIT_INVENTORY_CHANGED")
         self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+        self:RegisterEvent("SPELLS_CHANGED") -- learning Poisons
         -- Enchant expiry fires no event, so poll.
         C_Timer.NewTicker(0.5, update)
     end
@@ -528,7 +569,8 @@ SlashCmdList.SHOWWEAPONSTHATNEEDPOISON = function(msg)
         say(testMode and "test mode ON - both icons forced visible (resets on reload)." or "test mode off.")
     elseif cmd == "status" then
         local mh, mhExp, _, _, oh, ohExp = GetWeaponEnchantInfo()
-        say(("class=%s locked=%s MH tex=%s OH tex=%s"):format(select(2, UnitClass("player")), tostring(db.locked),
+        say(("class=%s poisonsKnown=%s locked=%s MH tex=%s OH tex=%s"):format(select(2, UnitClass("player")),
+            tostring(knowsPoisons()), tostring(db.locked),
             tostring(GetInventoryItemTexture("player", 16)), tostring(GetInventoryItemTexture("player", 17))))
         say(("enchant MH=%s(%s) OH=%s(%s)"):format(tostring(mh), tostring(mhExp), tostring(oh), tostring(ohExp)))
     elseif cmd == "all" then
