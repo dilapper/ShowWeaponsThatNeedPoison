@@ -2,7 +2,7 @@
 ## Title: ShowWeaponsThatNeedPoison
 ## Notes: Two movable icons for your main-hand and off-hand weapons. The one without a poison applied glows so you remember to reapply.
 ## Author: dilapper
-## Version: 1.0.0
+## Version: 1.0.1
 ## SavedVariables: ShowWeaponsThatNeedPoisonDB
 ## IconTexture: Interface\Icons\Ability_Poisons
 
