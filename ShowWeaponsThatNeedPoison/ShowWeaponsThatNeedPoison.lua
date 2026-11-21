@@ -292,8 +292,16 @@ function createOptionsPanel()
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText(PANEL_NAME)
 
+    -- Layout, top to bottom: lock, scale, reset, then the linking options.
+    -- Everything is placed from the panel's top-left so edges line up:
+    -- controls at x=16 (sliders x=20, as their bar has a small inset), and the
+    -- link sub-options indented to x=40.
+    local function place(frame, x, y)
+        frame:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+    end
+
     local slider = CreateFrame("Slider", "ShowWeaponsThatNeedPoisonScaleSlider", panel, "OptionsSliderTemplate")
-    slider:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 4, -40)
+    place(slider, 20, -110)
     slider:SetWidth(260)
     slider:SetMinMaxValues(0, 200)
     slider:SetValueStep(1)
@@ -311,11 +319,11 @@ function createOptionsPanel()
 
     -- Link the two icons: off hand attaches to the main hand on one side.
     local link = CreateFrame("CheckButton", "ShowWeaponsThatNeedPoisonLinkCheck", panel, "UICheckButtonTemplate")
-    link:SetPoint("TOPLEFT", slider, "BOTTOMLEFT", -4, -30)
+    place(link, 16, -200)
     _G[link:GetName() .. "Text"]:SetText("Link the two icons together")
 
     local sideLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    sideLabel:SetPoint("TOPLEFT", link, "BOTTOMLEFT", 24, -6)
+    place(sideLabel, 44, -236)
     sideLabel:SetText("Off hand sits on the main hand's:")
 
     local SIDES = { { "TOP", "Top" }, { "LEFT", "Left" }, { "BOTTOM", "Bottom" }, { "RIGHT", "Right" } }
@@ -323,7 +331,7 @@ function createOptionsPanel()
     local function refreshLinkWidgets() end -- assigned below
     for i, s in ipairs(SIDES) do
         local b = CreateFrame("CheckButton", "ShowWeaponsThatNeedPoisonSide" .. s[1], panel, "UICheckButtonTemplate")
-        b:SetPoint("TOPLEFT", sideLabel, "BOTTOMLEFT", (i - 1) * 80 - 4, -2)
+        place(b, 40 + (i - 1) * 80, -254)
         _G[b:GetName() .. "Text"]:SetText(s[2])
         b.side = s[1]
         b:SetScript("OnClick", function(self)
@@ -335,7 +343,7 @@ function createOptionsPanel()
     end
 
     local gap = CreateFrame("Slider", "ShowWeaponsThatNeedPoisonGapSlider", panel, "OptionsSliderTemplate")
-    gap:SetPoint("TOPLEFT", sideLabel, "BOTTOMLEFT", 4, -60)
+    place(gap, 44, -325)
     gap:SetWidth(200)
     gap:SetMinMaxValues(0, 10)
     gap:SetValueStep(1)
@@ -369,7 +377,7 @@ function createOptionsPanel()
     end)
 
     local lock = CreateFrame("CheckButton", "ShowWeaponsThatNeedPoisonLockCheck", panel, "UICheckButtonTemplate")
-    lock:SetPoint("TOPLEFT", gap, "BOTTOMLEFT", -4, -30)
+    place(lock, 16, -48)
     _G[lock:GetName() .. "Text"]:SetText("Lock icon positions")
     lock:SetScript("OnClick", function(self)
         db.locked = self:GetChecked() and true or false
@@ -379,7 +387,7 @@ function createOptionsPanel()
     local reset = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     reset:SetSize(160, 24)
     reset:SetText("Reset position and scale")
-    reset:SetPoint("TOPLEFT", lock, "BOTTOMLEFT", 4, -16)
+    place(reset, 20, -150)
     reset:SetScript("OnClick", function()
         db.points = CopyTable(DEFAULTS.points)
         db.scale = DEFAULTS.scale
