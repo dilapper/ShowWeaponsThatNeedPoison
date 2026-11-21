@@ -14,6 +14,10 @@ Copy the `ShowWeaponsThatNeedPoison` folder into your `Interface/AddOns` directo
 
 Open the options panel from Esc > Options > AddOns > ShowWeaponsThatNeedPoison, or with `/swp options`. You can set the icon scale from 0% to 200% (100% is the default, and 0% makes the icons effectively invisible), lock or unlock their positions, and reset everything. Changing the scale keeps the icons centred where they are.
 
+### Linking the icons
+
+Tick **Link the two icons together** to attach the off-hand icon to the main-hand icon. Then choose which side of the main hand the off hand sits on (top, left, bottom or right) and the gap between them (0-10). While linked, dragging either icon moves the pair. The off-hand icon keeps its spot next to the main hand even when the main-hand icon is hidden.
+
 ## Positioning
 
 The icons start unlocked. Drag each one where you want it, then click **Lock position**.
@@ -24,6 +28,9 @@ The icons start unlocked. Drag each one where you want it, then click **Lock pos
 | `/swp lock` | Lock them in place |
 | `/swp options` | Open the options panel |
 | `/swp scale <0-200>` | Set icon scale in percent (100 = default) |
+| `/swp link [on\|off]` | Link or unlink the two icons (no argument toggles) |
+| `/swp side top\|left\|bottom\|right` | Side of the main hand the off hand attaches to |
+| `/swp gap <0-10>` | Gap between linked icons |
 | `/swp reset` | Reset positions |
 | `/swp test` | Force both icons visible and glowing (until reload) |
 | `/swp status` | Print what the addon sees (for bug reports) |
