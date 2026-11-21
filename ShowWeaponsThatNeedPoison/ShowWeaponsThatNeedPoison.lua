@@ -10,6 +10,11 @@ local DEFAULTS = {
     locked = false,
     scale = 100, -- percent, 0-200
     onlyRogue = true,
+    -- When linked, the off-hand icon is attached to the main-hand icon on
+    -- linkSide (TOP/LEFT/BOTTOM/RIGHT) with linkGap pixels (0-10) between them.
+    linked = false,
+    linkSide = "RIGHT",
+    linkGap = 2,
     layoutVersion = 3,
     points = {
         MH = { "CENTER", "CENTER", -40, -150 },
@@ -90,17 +95,23 @@ local function createIcon(key, label)
 
     -- Label shown while unlocked.
     f.label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    f.label:SetPoint("BOTTOM", f, "TOP", 0, 2)
+    f.label:SetPoint("CENTER")
     f.label:SetText(label)
     f.label:Hide()
 
     f:SetScript("OnDragStart", function(self)
-        if not db.locked then self:StartMoving() end
+        if db.locked then return end
+        -- When linked, the off-hand icon is attached to the main-hand one, so
+        -- dragging either icon moves the pair by moving the main hand.
+        self.dragTarget = (db.linked and self.key == "OH") and icons.MH or self
+        self.dragTarget:StartMoving()
     end)
     f:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        local point, _, relPoint, x, y = self:GetPoint(1)
-        db.points[self.key] = { point, relPoint, x, y }
+        local target = self.dragTarget or self
+        target:StopMovingOrSizing()
+        local point, _, relPoint, x, y = target:GetPoint(1)
+        db.points[target.key] = { point, relPoint, x, y }
+        self.dragTarget = nil
     end)
 
     return f
@@ -124,16 +135,44 @@ local function effectiveScale()
     return math.max(db.scale, 1) / 100
 end
 
+-- Where the off-hand icon sits relative to the main-hand icon when linked:
+-- { off-hand anchor point, main-hand anchor point, x direction, y direction }
+local LINK_ANCHORS = {
+    RIGHT  = { "LEFT",   "RIGHT",  1,  0 },
+    LEFT   = { "RIGHT",  "LEFT",  -1,  0 },
+    TOP    = { "BOTTOM", "TOP",    0,  1 },
+    BOTTOM = { "TOP",    "BOTTOM", 0, -1 },
+}
+
+local function positionLockButton()
+    if not lockButton then return end
+    -- Sit below the linked pair (below the off hand if it is underneath).
+    local anchor, x = icons.MH, 40
+    if db.linked then
+        local a = LINK_ANCHORS[db.linkSide]
+        if db.linkSide == "BOTTOM" then anchor = icons.OH end
+        x = a[3] * (BASE_SIZE + db.linkGap) / 2 * effectiveScale()
+    end
+    lockButton:ClearAllPoints()
+    lockButton:SetPoint("TOP", anchor, "BOTTOM", x, -20)
+end
+
 local function layout()
     for _, f in pairs(icons) do
         f:SetSize(BASE_SIZE, BASE_SIZE)
         f.glow:SetSize(BASE_SIZE * 1.9, BASE_SIZE * 1.9)
         f:SetScale(effectiveScale())
-        local p = db.points[f.key]
         f:ClearAllPoints()
-        f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+        if db.linked and f.key == "OH" then
+            local a = LINK_ANCHORS[db.linkSide]
+            f:SetPoint(a[1], icons.MH, a[2], a[3] * db.linkGap, a[4] * db.linkGap)
+        else
+            local p = db.points[f.key]
+            f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+        end
         f:EnableMouse(not db.locked)
     end
+    positionLockButton()
     if lockButton then lockButton:SetShown(not db.locked) end
 end
 
@@ -141,15 +180,16 @@ end
 local function setScale(pct)
     pct = math.max(0, math.min(200, math.floor(pct + 0.5)))
     if db.scale == pct then return end
+    -- Measure every icon before changing any scale: a linked off-hand icon
+    -- moves when the main hand rescales.
+    local centres = {}
     for _, f in pairs(icons) do
         local x, y = f:GetCenter()
-        if x then
-            local oldScale = f:GetScale()
-            f:SetScale(math.max(pct, 1) / 100)
-            local newScale = f:GetScale()
-            x, y = x * oldScale / newScale, y * oldScale / newScale
-            db.points[f.key] = { "CENTER", "BOTTOMLEFT", x, y }
-        end
+        if x then centres[f] = { x * f:GetScale(), y * f:GetScale() } end
+    end
+    local newScale = math.max(pct, 1) / 100
+    for f, c in pairs(centres) do
+        db.points[f.key] = { "CENTER", "BOTTOMLEFT", c[1] / newScale, c[2] / newScale }
     end
     db.scale = pct
     layout()
@@ -252,8 +292,16 @@ function createOptionsPanel()
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText(PANEL_NAME)
 
+    -- Layout, top to bottom: lock, scale, reset, then the linking options.
+    -- Everything is placed from the panel's top-left so edges line up:
+    -- controls at x=16 (sliders x=20, as their bar has a small inset), and the
+    -- link sub-options indented to x=40.
+    local function place(frame, x, y)
+        frame:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+    end
+
     local slider = CreateFrame("Slider", "ShowWeaponsThatNeedPoisonScaleSlider", panel, "OptionsSliderTemplate")
-    slider:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 4, -40)
+    place(slider, 20, -110)
     slider:SetWidth(260)
     slider:SetMinMaxValues(0, 200)
     slider:SetValueStep(1)
@@ -269,8 +317,80 @@ function createOptionsPanel()
         sliderText:SetText("Icon scale: " .. db.scale .. "%")
     end)
 
+    -- Link the two icons: off hand attaches to the main hand on one side.
+    local link = CreateFrame("CheckButton", "ShowWeaponsThatNeedPoisonLinkCheck", panel, "UICheckButtonTemplate")
+    place(link, 16, -200)
+    _G[link:GetName() .. "Text"]:SetText("Link the two icons together")
+
+    local sideLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    place(sideLabel, 44, -236)
+    sideLabel:SetText("Off hand sits on the main hand's:")
+
+    local SIDES = { { "TOP", "Top" }, { "LEFT", "Left" }, { "BOTTOM", "Bottom" }, { "RIGHT", "Right" } }
+    local sideButtons = {}
+    local function refreshLinkWidgets() end -- assigned below
+    for i, s in ipairs(SIDES) do
+        -- Radio button: a CheckButton skinned with Blizzard's radio texture
+        -- (unchecked / checked / highlight laid out side by side). Only one
+        -- side is ever selected; refreshLinkWidgets enforces that.
+        local b = CreateFrame("CheckButton", "ShowWeaponsThatNeedPoisonSide" .. s[1], panel)
+        b:SetSize(16, 16)
+        place(b, 44 + (i - 1) * 80, -258)
+        b:SetNormalTexture("Interface\\Buttons\\UI-RadioButton")
+        b:GetNormalTexture():SetTexCoord(0, 0.25, 0, 1)
+        b:SetCheckedTexture("Interface\\Buttons\\UI-RadioButton")
+        b:GetCheckedTexture():SetTexCoord(0.25, 0.5, 0, 1)
+        b:SetHighlightTexture("Interface\\Buttons\\UI-RadioButton", "ADD")
+        b:GetHighlightTexture():SetTexCoord(0.5, 0.75, 0, 1)
+        b.text = b:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        b.text:SetPoint("LEFT", b, "RIGHT", 4, 0)
+        b.text:SetText(s[2])
+        b.side = s[1]
+        b:SetScript("OnClick", function(self)
+            db.linkSide = self.side
+            layout()
+            refreshLinkWidgets()
+        end)
+        sideButtons[i] = b
+    end
+
+    local gap = CreateFrame("Slider", "ShowWeaponsThatNeedPoisonGapSlider", panel, "OptionsSliderTemplate")
+    place(gap, 44, -325)
+    gap:SetWidth(200)
+    gap:SetMinMaxValues(0, 10)
+    gap:SetValueStep(1)
+    if gap.SetObeyStepOnDrag then gap:SetObeyStepOnDrag(true) end
+    _G[gap:GetName() .. "Low"]:SetText("0")
+    _G[gap:GetName() .. "High"]:SetText("10")
+    local gapText = _G[gap:GetName() .. "Text"]
+    gap:SetScript("OnValueChanged", function(_, value)
+        if refreshing then return end
+        db.linkGap = math.floor(value + 0.5)
+        gapText:SetText("Gap between icons: " .. db.linkGap)
+        layout()
+    end)
+
+    function refreshLinkWidgets()
+        link:SetChecked(db.linked)
+        for _, b in ipairs(sideButtons) do
+            b:SetChecked(db.linkSide == b.side)
+            if db.linked then b:Enable() else b:Disable() end
+            b:SetAlpha(db.linked and 1 or 0.5)
+        end
+        gap:SetAlpha(db.linked and 1 or 0.5)
+        gap:EnableMouse(db.linked)
+        sideLabel:SetAlpha(db.linked and 1 or 0.5)
+        gapText:SetText("Gap between icons: " .. db.linkGap)
+    end
+
+    link:SetScript("OnClick", function(self)
+        db.linked = self:GetChecked() and true or false
+        layout()
+        refreshLinkWidgets()
+    end)
+
     local lock = CreateFrame("CheckButton", "ShowWeaponsThatNeedPoisonLockCheck", panel, "UICheckButtonTemplate")
-    lock:SetPoint("TOPLEFT", slider, "BOTTOMLEFT", -4, -30)
+    place(lock, 16, -48)
     _G[lock:GetName() .. "Text"]:SetText("Lock icon positions")
     lock:SetScript("OnClick", function(self)
         db.locked = self:GetChecked() and true or false
@@ -280,7 +400,7 @@ function createOptionsPanel()
     local reset = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     reset:SetSize(160, 24)
     reset:SetText("Reset position and scale")
-    reset:SetPoint("TOPLEFT", lock, "BOTTOMLEFT", 4, -16)
+    place(reset, 20, -150)
     reset:SetScript("OnClick", function()
         db.points = CopyTable(DEFAULTS.points)
         db.scale = DEFAULTS.scale
@@ -290,7 +410,9 @@ function createOptionsPanel()
     function optionsRefresh()
         refreshing = true
         slider:SetValue(db.scale)
+        gap:SetValue(db.linkGap)
         refreshing = false
+        refreshLinkWidgets()
         sliderText:SetText("Icon scale: " .. db.scale .. "%")
         lock:SetChecked(db.locked)
     end
@@ -336,8 +458,8 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         db.layoutVersion = DEFAULTS.layoutVersion
         copyDefaults(DEFAULTS, db)
 
-        icons.MH = createIcon("MH", "Main hand")
-        icons.OH = createIcon("OH", "Off hand")
+        icons.MH = createIcon("MH", "MH")
+        icons.OH = createIcon("OH", "OH")
         lockButton = createLockButton()
         layout()
         createOptionsPanel()
@@ -371,6 +493,31 @@ SlashCmdList.SHOWWEAPONSTHATNEEDPOISON = function(msg)
         else
             say("usage: /swp scale 0-200 (100 = default)")
         end
+    elseif cmd == "link" then
+        local v = arg:lower()
+        if v == "on" then db.linked = true
+        elseif v == "off" then db.linked = false
+        else db.linked = not db.linked end
+        layout() if optionsRefresh then optionsRefresh() end
+        say(db.linked and "icons linked." or "icons unlinked.")
+    elseif cmd == "side" then
+        local side = arg:upper()
+        if LINK_ANCHORS[side] then
+            db.linkSide = side
+            layout() if optionsRefresh then optionsRefresh() end
+            say("off hand sits on the main hand's " .. side:lower() .. ".")
+        else
+            say("usage: /swp side top|left|bottom|right")
+        end
+    elseif cmd == "gap" then
+        local n = tonumber(arg)
+        if n and n >= 0 and n <= 10 then
+            db.linkGap = math.floor(n + 0.5)
+            layout() if optionsRefresh then optionsRefresh() end
+            say("gap " .. db.linkGap)
+        else
+            say("usage: /swp gap 0-10")
+        end
     elseif cmd == "options" or cmd == "config" then
         openOptions()
     elseif cmd == "reset" then
@@ -388,6 +535,6 @@ SlashCmdList.SHOWWEAPONSTHATNEEDPOISON = function(msg)
         db.onlyRogue = not db.onlyRogue update()
         say(db.onlyRogue and "only active on Rogues." or "active on all classes (for testing).")
     else
-        say("/swp options | unlock | lock | scale <0-200> | reset | test | status | all")
+        say("/swp options | unlock | lock | scale <0-200> | link | side <x> | gap <0-10> | reset | test | status | all")
     end
 end
