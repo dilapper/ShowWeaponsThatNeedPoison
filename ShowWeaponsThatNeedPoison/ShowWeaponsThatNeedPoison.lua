@@ -9,11 +9,18 @@ local DEFAULTS = {
     locked = false,
     size = 48,
     onlyRogue = true,
+    layoutVersion = 2,
     points = {
-        MH = { "CENTER", "CENTER", -30, -150 },
-        OH = { "CENTER", "CENTER", 30, -150 },
+        MH = { "CENTER", "CENTER", -40, -150 },
+        OH = { "CENTER", "CENTER", 40, -150 },
     },
 }
+
+-- Session-only (not saved): force both icons to show, glowing, regardless of
+-- equipped weapons or poisons. Handy for testing on a low-level character.
+local testMode = false
+
+local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
 
 local db
 local icons = {}
@@ -128,6 +135,7 @@ end
 local function isWeapon(slot)
     local id = GetInventoryItemID("player", slot)
     if not id then return false end
+    if not GetItemInfoInstant then return true end
     local _, _, _, _, _, classID = GetItemInfoInstant(id)
     return classID == 2 -- weapon (not shield / held-in-off-hand)
 end
@@ -152,7 +160,14 @@ local function update()
         local st = info[key]
         f.label:SetShown(not db.locked)
 
-        if tex and isWeapon(slot) and not st.has then
+        if testMode then
+            f:Show()
+            f.icon:SetTexture(tex or "Interface\\Icons\\Ability_Poisons")
+            f.icon:SetDesaturated(false)
+            f.icon:SetAlpha(1)
+            f.time:SetText("")
+            setGlow(f, true)
+        elseif tex and isWeapon(slot) and not st.has then
             -- Weapon with no poison: show it glowing.
             f:Show()
             f.icon:SetTexture(tex)
@@ -184,7 +199,7 @@ local function createLockButton()
     local b = CreateFrame("Button", "ShowWeaponsThatNeedPoisonLockButton", UIParent, "UIPanelButtonTemplate")
     b:SetSize(120, 24)
     b:SetText("Lock position")
-    b:SetPoint("TOP", icons.MH, "BOTTOM", 30, -20)
+    b:SetPoint("TOP", icons.MH, "BOTTOM", 40, -20)
     b:SetScript("OnClick", function()
         db.locked = true
         layout() update()
@@ -200,6 +215,11 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         if arg1 ~= ADDON then return end
         ShowWeaponsThatNeedPoisonDB = ShowWeaponsThatNeedPoisonDB or {}
         db = ShowWeaponsThatNeedPoisonDB
+        -- v1.0.0 defaults overlapped the two icons; reset saved positions once.
+        if (db.layoutVersion or 1) < DEFAULTS.layoutVersion then
+            db.points = nil
+            db.layoutVersion = DEFAULTS.layoutVersion
+        end
         copyDefaults(DEFAULTS, db)
 
         icons.MH = createIcon("MH", "Main hand")
@@ -237,10 +257,18 @@ SlashCmdList.SHOWWEAPONSTHATNEEDPOISON = function(msg)
     elseif cmd == "reset" then
         db.points = CopyTable(DEFAULTS.points)
         layout() say("positions reset.")
+    elseif cmd == "test" then
+        testMode = not testMode update()
+        say(testMode and "test mode ON - both icons forced visible (resets on reload)." or "test mode off.")
+    elseif cmd == "status" then
+        local mh, mhExp, _, _, oh, ohExp = GetWeaponEnchantInfo()
+        say(("class=%s locked=%s MH tex=%s OH tex=%s"):format(select(2, UnitClass("player")), tostring(db.locked),
+            tostring(GetInventoryItemTexture("player", 16)), tostring(GetInventoryItemTexture("player", 17))))
+        say(("enchant MH=%s(%s) OH=%s(%s)"):format(tostring(mh), tostring(mhExp), tostring(oh), tostring(ohExp)))
     elseif cmd == "all" then
         db.onlyRogue = not db.onlyRogue update()
         say(db.onlyRogue and "only active on Rogues." or "active on all classes (for testing).")
     else
-        say("/swp unlock | lock | size <n> | reset | all")
+        say("/swp unlock | lock | size <n> | reset | test | status | all")
     end
 end

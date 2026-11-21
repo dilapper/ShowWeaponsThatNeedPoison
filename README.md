@@ -20,6 +20,8 @@ The icons start unlocked. Drag each one where you want it, then click **Lock pos
 | `/swp lock` | Lock them in place |
 | `/swp size <16-200>` | Set icon size |
 | `/swp reset` | Reset positions |
+| `/swp test` | Force both icons visible and glowing (until reload) |
+| `/swp status` | Print what the addon sees (for bug reports) |
 | `/swp all` | Toggle between Rogue-only and all classes (for testing) |
 
 `/poison` also works as an alias.
